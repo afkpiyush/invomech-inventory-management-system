@@ -106,6 +106,12 @@ export type CompanySettings = {
   contactEmail: string
 }
 
+export type ApiErrorResponse = {
+  error?: string
+  code?: string
+  details?: unknown
+}
+
 const request = async <T>(path: string, options: RequestInit = {}): Promise<T> => {
   let response: Response
   try {
@@ -121,13 +127,14 @@ const request = async <T>(path: string, options: RequestInit = {}): Promise<T> =
     throw new Error('Unable to reach the INVOMECH API. Start the API server and try again.')
   }
   if (!response.ok) {
-    if (body.code === 'DATABASE_UNAVAILABLE') {
+    const body = (await response.json().catch(() => null)) as ApiErrorResponse | null
+    if (body?.code === 'DATABASE_UNAVAILABLE') {
       throw new Error('The database is unavailable. Start MySQL 8 and try again.')
     }
-    if (body.code === 'DATABASE_NOT_INITIALIZED' || body.code === 'DATABASE_AUTH_FAILED') {
-      throw new Error(body.error ?? 'Database error. Please check server configuration.')
+    if (body?.code === 'DATABASE_NOT_INITIALIZED' || body?.code === 'DATABASE_AUTH_FAILED') {
+      throw new Error(body?.error ?? 'Database error. Please check server configuration.')
     }
-    throw new Error(body.error ?? `Request failed (${response.status})`)
+    throw new Error(body?.error ?? `Request failed (${response.status})`)
   }
   return response.status === 204 ? (undefined as unknown as T) : (response.json() as Promise<T>)
 }
